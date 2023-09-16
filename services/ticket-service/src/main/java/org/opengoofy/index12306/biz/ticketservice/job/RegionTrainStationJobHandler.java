@@ -65,6 +65,7 @@ public class RegionTrainStationJobHandler extends IJobHandler {
     @GetMapping("/api/ticket-service/region-train-station/job/cache-init/execute")
     @Override
     public void execute() {
+        // 获取所有区域
         List<String> regionList = regionMapper.selectList(Wrappers.emptyWrapper())
                 .stream()
                 .map(RegionDO::getName)
@@ -79,10 +80,12 @@ public class RegionTrainStationJobHandler extends IJobHandler {
                     LambdaQueryWrapper<TrainStationRelationDO> relationQueryWrapper = Wrappers.lambdaQuery(TrainStationRelationDO.class)
                             .eq(TrainStationRelationDO::getStartRegion, startRegion)
                             .eq(TrainStationRelationDO::getEndRegion, endRegion);
+                    // 判断每两个区域之间是否有车
                     List<TrainStationRelationDO> trainStationRelationDOList = trainStationRelationMapper.selectList(relationQueryWrapper);
                     if (CollUtil.isEmpty(trainStationRelationDOList)) {
                         continue;
                     }
+                    // 将车及其对应的到达时间写到缓存中（hash结构，key是开始区域+终点区域+日期，value是车id+始发站+目的站，score是到达时间）
                     Set<ZSetOperations.TypedTuple<String>> tuples = new HashSet<>();
                     for (TrainStationRelationDO item : trainStationRelationDOList) {
                         String zSetKey = StrUtil.join("_", item.getTrainId(), item.getDeparture(), item.getArrival());

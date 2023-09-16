@@ -291,14 +291,17 @@ public class OrderServiceImpl implements OrderService {
         LambdaQueryWrapper<OrderItemPassengerDO> queryWrapper = Wrappers.lambdaQuery(OrderItemPassengerDO.class)
                 .eq(OrderItemPassengerDO::getIdCard, requestParam.getIdCard())
                 .orderByDesc(OrderItemPassengerDO::getCreateTime);
+        // 根据身份证号 从 身份证-订单 路由表中分页查询
         IPage<OrderItemPassengerDO> orderItemPassengerPage = orderPassengerRelationService.page(PageUtil.convert(requestParam), queryWrapper);
         return PageUtil.convert(orderItemPassengerPage, each -> {
             LambdaQueryWrapper<OrderDO> orderQueryWrapper = Wrappers.lambdaQuery(OrderDO.class)
                     .eq(OrderDO::getOrderSn, each.getOrderSn());
+            // 根据 订单id 从 订单表中搜索到 订单
             OrderDO orderDO = orderMapper.selectOne(orderQueryWrapper);
             LambdaQueryWrapper<OrderItemDO> orderItemQueryWrapper = Wrappers.lambdaQuery(OrderItemDO.class)
                     .eq(OrderItemDO::getOrderSn, each.getOrderSn())
                     .eq(OrderItemDO::getIdCard, each.getIdCard());
+            // 根据 订单 id 从 订单详情表中搜索到 订单 item
             OrderItemDO orderItemDO = orderItemMapper.selectOne(orderItemQueryWrapper);
             TicketOrderDetailSelfRespDTO actualResult = BeanUtil.convert(orderDO, TicketOrderDetailSelfRespDTO.class);
             BeanUtil.convertIgnoreNullAndBlank(orderItemDO, actualResult);

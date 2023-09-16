@@ -66,6 +66,7 @@ public final class TrainSeatTypeSelector {
     private final ThreadPoolExecutor selectSeatThreadPoolExecutor;
 
     public List<TrainPurchaseTicketRespDTO> select(Integer trainType, PurchaseTicketReqDTO requestParam) {
+        // 将本单的乘客 按照 买的座位类型进行分组
         List<PurchaseTicketPassengerDetailDTO> passengerDetails = requestParam.getPassengers();
         Map<Integer, List<PurchaseTicketPassengerDetailDTO>> seatTypeMap = passengerDetails.stream()
                 .collect(Collectors.groupingBy(PurchaseTicketPassengerDetailDTO::getSeatType));

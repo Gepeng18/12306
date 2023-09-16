@@ -72,12 +72,16 @@ public final class StationCalculateUtil {
             return takeoutStationList;
         }
         if (startIndex != 0) {
+            // [0,...,startIndex-1] 到 [startIndex+1, station.size()-1] 之间的排列组合
+            // 意思是：从出发站之前的站 到 出发站之后的站 的 路程 都不能购买
             for (int i = 0; i < startIndex; i++) {
                 for (int j = 1; j < stations.size() - startIndex; j++) {
                     takeoutStationList.add(new RouteDTO(stations.get(i), stations.get(startIndex + j)));
                 }
             }
         }
+        // [startIndex,...,endIndex] 到 [startIndex+1, station.size()-1] 之间的排列组合
+        // 意思是：从出发站到目的站之间的某一站 到 该站之后的任意一站 的路程都不能购买
         for (int i = startIndex; i <= endIndex; i++) {
             for (int j = i + 1; j < stations.size() && i < endIndex; j++) {
                 takeoutStationList.add(new RouteDTO(stations.get(i), stations.get(j)));

@@ -57,6 +57,9 @@ public class TrainStationJobHandler extends AbstractTrainStationJobHandlerTempla
         super.execute();
     }
 
+    /**
+     * 传入 列车 id list，然后根据 列车 id 读取列车信息，写到缓存中
+     */
     @Override
     protected void actualExecute(List<TrainDO> trainDOPageRecords) {
         for (TrainDO each : trainDOPageRecords) {

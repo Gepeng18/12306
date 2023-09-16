@@ -156,6 +156,7 @@ public final class TicketAvailabilityTokenBucket {
             return redisScript;
         });
         Assert.notNull(actual);
+        // 计算 每个席别有多少票
         List<TicketOrderPassengerDetailRespDTO> passengerDetails = requestParam.getPassengerDetails();
         Map<Integer, Long> seatTypeCountMap = passengerDetails.stream()
                 .collect(Collectors.groupingBy(TicketOrderPassengerDetailRespDTO::getSeatType, Collectors.counting()));
@@ -170,7 +171,9 @@ public final class TicketAvailabilityTokenBucket {
         StringRedisTemplate stringRedisTemplate = (StringRedisTemplate) distributedCache.getInstance();
         String actualHashKey = TICKET_AVAILABILITY_TOKEN_BUCKET + requestParam.getTrainId();
         String luaScriptKey = StrUtil.join("_", requestParam.getDeparture(), requestParam.getArrival());
+        // 获取列车站点需扣减路线关系
         List<RouteDTO> takeoutRouteDTOList = trainStationService.listTakeoutTrainStationRoute(String.valueOf(requestParam.getTrainId()), requestParam.getDeparture(), requestParam.getArrival());
+        // 参数1. lua脚本 2. [列车的令牌桶key，出发站-到达站] 3. 每个席别有多少票  4. 获取列车站点需扣减路线关系
         Long result = stringRedisTemplate.execute(actual, Lists.newArrayList(actualHashKey, luaScriptKey), JSON.toJSONString(seatTypeCountArray), JSON.toJSONString(takeoutRouteDTOList));
         if (result == null || !Objects.equals(result, 0L)) {
             log.error("回滚列车余票令牌失败，订单信息：{}", JSON.toJSONString(requestParam));

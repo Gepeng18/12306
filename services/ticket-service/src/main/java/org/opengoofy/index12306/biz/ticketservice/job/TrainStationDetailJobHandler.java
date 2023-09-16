@@ -62,6 +62,10 @@ public class TrainStationDetailJobHandler extends AbstractTrainStationJobHandler
         super.execute();
     }
 
+    /**
+     * 传入 列车 信息，根据列车id信息，读取列车站点关系实体，将一些信息写入缓存
+     * key 为 列车id + 出发站点 + 到达站点
+     */
     @Override
     protected void actualExecute(List<TrainDO> trainDOPageRecords) {
         for (TrainDO each : trainDOPageRecords) {

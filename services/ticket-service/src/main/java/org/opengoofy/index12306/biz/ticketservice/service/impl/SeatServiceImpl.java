@@ -131,6 +131,7 @@ public class SeatServiceImpl extends ServiceImpl<SeatMapper, SeatDO> implements 
             SeatDO updateSeatDO = SeatDO.builder()
                     .seatStatus(SeatStatusEnum.AVAILABLE.getCode())
                     .build();
+            // 之前很多不能买的座位号，现在都可以买了
             seatMapper.update(updateSeatDO, updateWrapper);
         }));
     }
