@@ -72,6 +72,7 @@ public class PayResultCallbackTicketConsumer implements RocketMQListener<Message
     public void onMessage(MessageWrapper<PayResultCallbackTicketEvent> message) {
         Result<TicketOrderDetailRespDTO> ticketOrderDetailResult;
         try {
+            // ct 根据订单id获取订单信息和订单详情
             ticketOrderDetailResult = ticketOrderRemoteService.queryTicketOrderByOrderSn(message.getMessage().getOrderSn());
             if (!ticketOrderDetailResult.isSuccess() && Objects.isNull(ticketOrderDetailResult.getData())) {
                 throw new ServiceException("支付结果回调查询订单失败");
@@ -82,6 +83,7 @@ public class PayResultCallbackTicketConsumer implements RocketMQListener<Message
         }
         TicketOrderDetailRespDTO ticketOrderDetail = ticketOrderDetailResult.getData();
         for (TicketOrderPassengerDetailRespDTO each : ticketOrderDetail.getPassengerDetails()) {
+            // ct 根据订单详情（乘车人信息）将对应的座位设置为已售
             LambdaUpdateWrapper<SeatDO> updateWrapper = Wrappers.lambdaUpdate(SeatDO.class)
                     .eq(SeatDO::getTrainId, ticketOrderDetail.getTrainId())
                     .eq(SeatDO::getCarriageNumber, each.getCarriageNumber())

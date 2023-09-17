@@ -68,6 +68,9 @@ public class SeatServiceImpl extends ServiceImpl<SeatMapper, SeatDO> implements 
         return seatDOList.stream().map(SeatDO::getSeatNumber).collect(Collectors.toList());
     }
 
+    /**
+     * 列举出符合下列条件： trainid、出发站、到达站，且空闲车厢在 trainCarriageList 中 的空座位列表
+     */
     @Override
     public List<Integer> listSeatRemainingTicket(String trainId, String departure, String arrival, List<String> trainCarriageList) {
         String keySuffix = StrUtil.join("_", trainId, departure, arrival);
@@ -87,6 +90,9 @@ public class SeatServiceImpl extends ServiceImpl<SeatMapper, SeatDO> implements 
         return seatMapper.listSeatRemainingTicket(seatDO, trainCarriageList);
     }
 
+    /**
+     * 从 seat 表中获取所有可用的座位对应的车厢号
+     */
     @Override
     public List<String> listUsableCarriageNumber(String trainId, Integer carriageType, String departure, String arrival) {
         LambdaQueryWrapper<SeatDO> queryWrapper = Wrappers.lambdaQuery(SeatDO.class)

@@ -151,6 +151,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
     public TicketPageQueryRespDTO pageListTicketQuery(TicketPageQueryReqDTO requestParam) {
         // 责任链模式 验证城市名称是否存在、不存在加载缓存等等
         ticketPageQueryAbstractChainContext.handler(TicketChainMarkEnum.TRAIN_QUERY_FILTER.name(), requestParam);
+        // cmt 前端传入code，先根据缓存查询code对应的station
         StringRedisTemplate stringRedisTemplate = (StringRedisTemplate) distributedCache.getInstance();
         // 列车查询逻辑较为复杂，详细解析文章查看 https://t.zsxq.com/11dqEMRLb
         // 后续会重构 v2 版本，请大家留意语雀中列车数据查询相关文档
@@ -179,7 +180,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
             }
         }
         List<TicketListDTO> seatResults = new ArrayList<>();
-        // 从缓存中获取 从 某个 station 到 某个 station 有哪些
+        // ct 从缓存中获取 从 某个 station 到 某个 station 有哪些车
         String buildRegionTrainStationHashKey = String.format(REGION_TRAIN_STATION, stationDetails.get(0), stationDetails.get(1));
         Map<Object, Object> regionTrainStationAllMap = stringRedisTemplate.opsForHash().entries(buildRegionTrainStationHashKey);
         if (MapUtil.isEmpty(regionTrainStationAllMap)) {
@@ -193,6 +194,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
                             .eq(TrainStationRelationDO::getEndRegion, stationDetails.get(1));
                     List<TrainStationRelationDO> trainStationRelationList = trainStationRelationMapper.selectList(queryWrapper);
                     for (TrainStationRelationDO each : trainStationRelationList) {
+                        // cmt 获取车信息
                         TrainDO trainDO = distributedCache.safeGet(
                                 TRAIN_INFO + each.getTrainId(),
                                 TrainDO.class,
@@ -219,7 +221,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
                         result.setSaleStatus(new Date().after(trainDO.getSaleTime()) ? 0 : 1);
                         result.setSaleTime(convertDateToLocalTime(trainDO.getSaleTime(), "MM-dd HH:mm"));
                         seatResults.add(result);
-                        // 将结果写到 cache 中
+                        // ct 将结果写到 cache 中，这样下次查询某站-某站有哪些车，就直接从缓存中取
                         regionTrainStationAllMap.put(CacheUtil.buildKey(String.valueOf(each.getTrainId()), each.getDeparture(), each.getArrival()), JSON.toJSONString(result));
                     }
                     stringRedisTemplate.opsForHash().putAll(buildRegionTrainStationHashKey, regionTrainStationAllMap);
@@ -233,7 +235,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
                 : seatResults;
         seatResults = seatResults.stream().sorted(new TimeStringComparator()).toList();
         for (TicketListDTO each : seatResults) {
-            // 获取该列车从出发站到到达站的价格
+            // ct 获取该列车从出发站到到达站的价格
             String trainStationPriceStr = distributedCache.safeGet(
                     String.format(TRAIN_STATION_PRICE, each.getTrainId(), each.getDeparture(), each.getArrival()),
                     String.class,
@@ -251,7 +253,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
             List<SeatClassDTO> seatClassList = new ArrayList<>();
             trainStationPriceDOList.forEach(item -> {
                 String seatType = String.valueOf(item.getSeatType());
-                // 获取该列车从出发站到到达站的票剩余数量
+                // ct 获取该列车从出发站到到达站的票剩余数量
                 String keySuffix = StrUtil.join("_", each.getTrainId(), item.getDeparture(), item.getArrival());
                 Object quantityObj = stringRedisTemplate.opsForHash().get(TRAIN_STATION_REMAINING_TICKET + keySuffix, seatType);
                 int quantity = Optional.ofNullable(quantityObj)
@@ -351,12 +353,14 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         List<TicketOrderDetailRespDTO> ticketOrderDetailResults = new ArrayList<>();
         String trainId = requestParam.getTrainId();
         // 节假日高并发购票Redis能扛得住么？详情查看：https://t.zsxq.com/12Amn0Q8O
+        // ct 1、根据trainId获取列车信息
         TrainDO trainDO = distributedCache.safeGet(
                 TRAIN_INFO + trainId,
                 TrainDO.class,
                 () -> trainMapper.selectById(trainId),
                 ADVANCE_TICKET_DAY,
                 TimeUnit.DAYS);
+        // ct 2、选择座位，扣减库存，返回了车厢号，座位号
         List<TrainPurchaseTicketRespDTO> trainPurchaseTicketResults = trainSeatTypeSelector.select(trainDO.getTrainType(), requestParam);
         List<TicketDO> ticketDOList = trainPurchaseTicketResults.stream()
                 .map(each -> TicketDO.builder()
@@ -368,6 +372,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
                         .ticketStatus(TicketStatusEnum.UNPAID.getCode())
                         .build())
                 .toList();
+        // ct 3、保存座位选择结果和付款状态:未支付到ticket表中
         saveBatch(ticketDOList);
         Result<String> ticketOrderResult;
         try {
@@ -397,12 +402,13 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
                 orderItemCreateRemoteReqDTOList.add(orderItemCreateRemoteReqDTO);
                 ticketOrderDetailResults.add(ticketOrderDetailRespDTO);
             });
-            // 搜索 该列车 从 始发 到 到达这列车 的 信息， 比如 各种时间
+            // 搜索 该列车 从 出发站 到 到达站 的 信息， 比如 各种时间
             LambdaQueryWrapper<TrainStationRelationDO> queryWrapper = Wrappers.lambdaQuery(TrainStationRelationDO.class)
                     .eq(TrainStationRelationDO::getTrainId, trainId)
                     .eq(TrainStationRelationDO::getDeparture, requestParam.getDeparture())
                     .eq(TrainStationRelationDO::getArrival, requestParam.getArrival());
             TrainStationRelationDO trainStationRelationDO = trainStationRelationMapper.selectOne(queryWrapper);
+            // ct 4、将订单信息，订单详情（每个乘车人）信息调用RPC接口进行创建
             TicketOrderCreateRemoteReqDTO orderCreateRemoteReqDTO = TicketOrderCreateRemoteReqDTO.builder()
                     .departure(requestParam.getDeparture())
                     .arrival(requestParam.getArrival())

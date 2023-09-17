@@ -66,10 +66,11 @@ public final class TrainSeatTypeSelector {
     private final ThreadPoolExecutor selectSeatThreadPoolExecutor;
 
     public List<TrainPurchaseTicketRespDTO> select(Integer trainType, PurchaseTicketReqDTO requestParam) {
-        // 将本单的乘客 按照 买的座位类型进行分组
+        // ct 1、将本单的乘客 按照 买的座位类型进行分组
         List<PurchaseTicketPassengerDetailDTO> passengerDetails = requestParam.getPassengers();
         Map<Integer, List<PurchaseTicketPassengerDetailDTO>> seatTypeMap = passengerDetails.stream()
                 .collect(Collectors.groupingBy(PurchaseTicketPassengerDetailDTO::getSeatType));
+        // ct 2、针对每个座位类型去调用distributeSeats()分配座位
         List<TrainPurchaseTicketRespDTO> actualResult = new CopyOnWriteArrayList<>();
         if (seatTypeMap.size() > 1) {
             List<Future<List<TrainPurchaseTicketRespDTO>>> futureResults = new ArrayList<>();
@@ -82,6 +83,7 @@ public final class TrainSeatTypeSelector {
             // 并行流极端情况下有坑，详情参考：https://t.zsxq.com/11X4LkYJs
             futureResults.parallelStream().forEach(completableFuture -> {
                 try {
+                    // 等待分配结果
                     actualResult.addAll(completableFuture.get());
                 } catch (Exception e) {
                     throw new ServiceException("站点余票不足，请尝试更换座位类型或选择其它站点");
@@ -96,6 +98,7 @@ public final class TrainSeatTypeSelector {
         if (CollUtil.isEmpty(actualResult) || !Objects.equals(actualResult.size(), passengerDetails.size())) {
             throw new ServiceException("站点余票不足，请尝试更换座位类型或选择其它站点");
         }
+        // ct 3、发起远程调用获取乘车人信息
         List<String> passengerIds = actualResult.stream()
                 .map(TrainPurchaseTicketRespDTO::getPassengerId)
                 .collect(Collectors.toList());
@@ -114,6 +117,7 @@ public final class TrainSeatTypeSelector {
             }
             throw ex;
         }
+        // ct 4、在座位分配的结果中添加乘车人信息和座位价格信息
         actualResult.forEach(each -> {
             String passengerId = each.getPassengerId();
             passengerRemoteResultList.stream()
@@ -135,6 +139,7 @@ public final class TrainSeatTypeSelector {
             TrainStationPriceDO trainStationPriceDO = trainStationPriceMapper.selectOne(lambdaQueryWrapper);
             each.setAmount(trainStationPriceDO.getPrice());
         });
+        // ct 5、锁定选择的座位
         seatService.lockSeat(requestParam.getTrainId(), requestParam.getDeparture(), requestParam.getArrival(), actualResult);
         return actualResult;
     }
@@ -146,6 +151,7 @@ public final class TrainSeatTypeSelector {
                 .passengerSeatDetails(passengerSeatDetails)
                 .requestParam(requestParam)
                 .build();
+        // 根据 列车类型 + 座位类型，选择对应的策略类进行执行
         return abstractStrategyChoose.chooseAndExecuteResp(buildStrategyKey, selectSeatDTO);
     }
 }

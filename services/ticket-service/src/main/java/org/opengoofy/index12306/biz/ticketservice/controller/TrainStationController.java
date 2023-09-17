@@ -40,6 +40,7 @@ public class TrainStationController {
 
     /**
      * 根据列车 ID 查询站点信息
+     * 全排列列车的站与站之间的信息
      */
     @GetMapping("/api/ticket-service/train-station/query")
     public Result<List<TrainStationQueryRespDTO>> listTrainStationQuery(String trainId) {

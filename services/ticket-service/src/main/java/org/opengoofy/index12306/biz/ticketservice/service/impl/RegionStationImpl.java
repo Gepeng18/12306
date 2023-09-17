@@ -66,6 +66,7 @@ public class RegionStationImpl implements RegionStationService {
 
     @Override
     public List<RegionStationQueryRespDTO> listRegionStation(RegionStationQueryReqDTO requestParam) {
+        // 提供两种查询方案，第一种是输入 站点名，去 station表中查询
         String key;
         if (StrUtil.isNotBlank(requestParam.getName())) {
             key  = REGION_STATION  + requestParam.getName();
@@ -82,6 +83,7 @@ public class RegionStationImpl implements RegionStationService {
                     requestParam.getName()
             );
         }
+        // 提供两种查询方案，第二种是输入一个搜索枚举，如地区首字母在某个范围，去查询区域
         key  = REGION_STATION  + requestParam.getQueryType();
         LambdaQueryWrapper<RegionDO> queryWrapper = switch (requestParam.getQueryType()) {
             case 0 -> Wrappers.lambdaQuery(RegionDO.class)

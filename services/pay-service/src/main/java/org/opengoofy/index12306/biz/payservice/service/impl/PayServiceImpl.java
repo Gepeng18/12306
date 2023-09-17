@@ -66,6 +66,9 @@ public class PayServiceImpl implements PayService {
     private final AbstractStrategyChoose abstractStrategyChoose;
     private final PayResultCallbackOrderSendProduce payResultCallbackOrderSendProduce;
 
+    /**
+     * 使用策略模式向pay表中插入一条等待支付记录
+     */
     @Transactional(rollbackFor = Exception.class)
     @Override
     public PayRespDTO commonPay(PayRequest requestParam) {
@@ -87,6 +90,12 @@ public class PayServiceImpl implements PayService {
         return BeanUtil.convert(result, PayRespDTO.class);
     }
 
+    /**
+     * 1、更改 pay 订单的状态
+     * 2、交易成功，回调订单服务告知支付结果，修改订单流转状态
+     * {@link PayResultCallbackOrderConsumer : 根据支付状态去修改订单状态和订单详情状态}
+     * {@link PayResultCallbackTicketConsumer : 根据订单详情（乘车人信息）将对应的座位设置为已售}
+     */
     @Transactional(rollbackFor = Exception.class)
     @Override
     public void callbackPay(PayCallbackReqDTO requestParam) {

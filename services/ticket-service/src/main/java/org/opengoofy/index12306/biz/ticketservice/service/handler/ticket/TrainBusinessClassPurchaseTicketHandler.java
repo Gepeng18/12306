@@ -74,12 +74,16 @@ public class TrainBusinessClassPurchaseTicketHandler extends AbstractTrainPurcha
         String departure = requestParam.getRequestParam().getDeparture();
         String arrival = requestParam.getRequestParam().getArrival();
         List<PurchaseTicketPassengerDetailDTO> passengerSeatDetails = requestParam.getPassengerSeatDetails();
+        // 列举出 空车厢
         List<String> trainCarriageList = seatService.listUsableCarriageNumber(trainId, requestParam.getSeatType(), departure, arrival);
+        // 列举出 空车厢的 座位数
+        // ct 1、如果空车厢的空座位数总和都小于需求量，那么就抛出异常
         List<Integer> trainStationCarriageRemainingTicket = seatService.listSeatRemainingTicket(trainId, departure, arrival, trainCarriageList);
         int remainingTicketSum = trainStationCarriageRemainingTicket.stream().mapToInt(Integer::intValue).sum();
         if (remainingTicketSum < passengerSeatDetails.size()) {
             throw new ServiceException("站点余票不足，请尝试更换座位类型或选择其它站点");
         }
+        // ct 2、如果需要一个 or 两个 座位
         if (passengerSeatDetails.size() < 3) {
             if (CollUtil.isNotEmpty(requestParam.getRequestParam().getChooseSeats())) {
                 Pair<List<TrainPurchaseTicketRespDTO>, Boolean> actualSeatPair = findMatchSeats(requestParam, trainCarriageList, trainStationCarriageRemainingTicket);
@@ -87,6 +91,7 @@ public class TrainBusinessClassPurchaseTicketHandler extends AbstractTrainPurcha
             }
             return selectSeats(requestParam, trainCarriageList, trainStationCarriageRemainingTicket);
         } else {
+            // ct 3、如果需要三个及以上座位
             if (CollUtil.isNotEmpty(requestParam.getRequestParam().getChooseSeats())) {
                 Pair<List<TrainPurchaseTicketRespDTO>, Boolean> actualSeatPair = findMatchSeats(requestParam, trainCarriageList, trainStationCarriageRemainingTicket);
                 return actualSeatPair.getKey();

@@ -50,6 +50,7 @@ public class RegionStationController {
 
     /**
      * 查询车站站点集合信息
+     * 从DB中查询所有站信息(与具体的列车无关)
      */
     @GetMapping("/api/ticket-service/station/all")
     public Result<List<StationQueryRespDTO>> listAllStation() {

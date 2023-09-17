@@ -51,6 +51,9 @@ public class PayResultCallbackOrderConsumer implements RocketMQListener<MessageW
 
     private final OrderService orderService;
 
+    /**
+     * 根据支付状态去修改订单状态和订单详情状态
+     */
     @Idempotent(
             uniqueKeyPrefix = "index12306-order:pay_result_callback:",
             key = "#message.getKeys()+'_'+#message.hashCode()",

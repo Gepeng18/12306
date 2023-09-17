@@ -64,10 +64,14 @@ public abstract class AbstractTrainPurchaseTicketTemplate implements IPurchaseTi
                 .build();
     }
 
+    /**
+     * 扣减站点余票
+     * key 为 列车id+出发站+到达站，value为座位类型，score为剩余票
+     */
     @Override
     public List<TrainPurchaseTicketRespDTO> executeResp(SelectSeatDTO requestParam) {
         List<TrainPurchaseTicketRespDTO> actualResult = selectSeats(requestParam);
-        // 扣减车厢余票缓存，扣减站点余票缓存
+        // 扣减车厢余票缓存（没看到啊），扣减站点余票缓存
         if (CollUtil.isNotEmpty(actualResult) && !StrUtil.equals(ticketAvailabilityCacheUpdateType, "binlog")) {
             String trainId = requestParam.getRequestParam().getTrainId();
             String departure = requestParam.getRequestParam().getDeparture();

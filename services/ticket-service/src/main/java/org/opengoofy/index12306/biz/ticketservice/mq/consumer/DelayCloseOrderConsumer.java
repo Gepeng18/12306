@@ -71,6 +71,12 @@ public final class DelayCloseOrderConsumer implements RocketMQListener<MessageWr
     @Value("${ticket.availability.cache-update.type:}")
     private String ticketAvailabilityCacheUpdateType;
 
+    /**
+     * 1、根据订单id获取订单状态，判断是否是未支付状态，是则取消订单，否则取消失败
+     * 2、订单取消成功，座位解锁
+     * 3、恢复站点余票
+     * 4、回滚列车余量令牌
+     */
     @Override
     public void onMessage(MessageWrapper<DelayCloseOrderEvent> delayCloseOrderEventMessageWrapper) {
         log.info("[延迟关闭订单] 开始消费：{}", JSON.toJSONString(delayCloseOrderEventMessageWrapper));
@@ -78,11 +84,13 @@ public final class DelayCloseOrderConsumer implements RocketMQListener<MessageWr
         String orderSn = delayCloseOrderEvent.getOrderSn();
         Result<Boolean> closedTickOrder;
         try {
+            // 根据订单id获取订单状态，判断是否是未支付状态，是则取消订单，否则取消失败
             closedTickOrder = ticketOrderRemoteService.closeTickOrder(new CancelTicketOrderReqDTO(orderSn));
         } catch (Throwable ex) {
             log.error("[延迟关闭订单] 订单号：{} 远程调用订单服务失败", orderSn, ex);
             throw ex;
         }
+        // 订单取消成功，座位解锁
         if (closedTickOrder.isSuccess() && closedTickOrder.getData() && !StrUtil.equals(ticketAvailabilityCacheUpdateType, "binlog")) {
             String trainId = delayCloseOrderEvent.getTrainId();
             String departure = delayCloseOrderEvent.getDeparture();
@@ -95,6 +103,7 @@ public final class DelayCloseOrderConsumer implements RocketMQListener<MessageWr
                 throw ex;
             }
             try {
+                // 恢复站点余票
                 StringRedisTemplate stringRedisTemplate = (StringRedisTemplate) distributedCache.getInstance();
                 Map<Integer, List<TrainPurchaseTicketRespDTO>> seatTypeMap = trainPurchaseTicketResults.stream()
                         .collect(Collectors.groupingBy(TrainPurchaseTicketRespDTO::getSeatType));
@@ -106,6 +115,7 @@ public final class DelayCloseOrderConsumer implements RocketMQListener<MessageWr
                                 .increment(TRAIN_STATION_REMAINING_TICKET + keySuffix, String.valueOf(seatType), trainPurchaseTicketRespDTOList.size());
                     });
                 });
+                // 回滚列车余量令牌
                 ticketAvailabilityTokenBucket.rollbackInBucket(BeanUtil.convert(delayCloseOrderEvent, TicketOrderDetailRespDTO.class));
             } catch (Throwable ex) {
                 log.error("[延迟关闭订单] 订单号：{} 回滚列车Cache余票失败", orderSn, ex);

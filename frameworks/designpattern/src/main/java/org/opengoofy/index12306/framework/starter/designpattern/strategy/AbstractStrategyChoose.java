@@ -94,7 +94,9 @@ public class AbstractStrategyChoose implements ApplicationListener<ApplicationIn
      * @return
      */
     public <REQUEST, RESPONSE> RESPONSE chooseAndExecuteResp(String mark, REQUEST requestParam) {
+        // 根据 mark 选择策略类
         AbstractExecuteStrategy executeStrategy = choose(mark, null);
+        // 调用策略类执行
         return (RESPONSE) executeStrategy.executeResp(requestParam);
     }
 

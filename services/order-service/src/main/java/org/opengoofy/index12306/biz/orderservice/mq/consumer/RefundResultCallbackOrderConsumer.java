@@ -59,6 +59,9 @@ public class RefundResultCallbackOrderConsumer implements RocketMQListener<Messa
 
     private final OrderItemService orderItemService;
 
+    /**
+     * 根据退款topic更新订单状态和订单详情状态
+     */
     @Idempotent(
             uniqueKeyPrefix = "index12306-order:refund_result_callback:",
             key = "#message.getKeys()+'_'+#message.hashCode()",

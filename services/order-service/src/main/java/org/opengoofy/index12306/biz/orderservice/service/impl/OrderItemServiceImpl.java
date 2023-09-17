@@ -59,6 +59,10 @@ public class OrderItemServiceImpl extends ServiceImpl<OrderItemMapper, OrderItem
 
     private final RedissonClient redissonClient;
 
+    /**
+     * 1、根据订单id获取订单信息
+     * 2、更新订单状态和订单详情状态
+     */
     @Override
     @Transactional
     public void orderItemStatusReversal(OrderItemStatusReversalDTO requestParam) {
@@ -102,6 +106,9 @@ public class OrderItemServiceImpl extends ServiceImpl<OrderItemMapper, OrderItem
         }
     }
 
+    /**
+     * 根据订单id+子订单id获取订单详情
+     */
     @Override
     public List<TicketOrderPassengerDetailRespDTO> queryTicketItemOrderById(TicketOrderItemQueryReqDTO requestParam) {
         LambdaQueryWrapper<OrderItemDO> queryWrapper = Wrappers.lambdaQuery(OrderItemDO.class)

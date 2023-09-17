@@ -83,6 +83,9 @@ public class OrderServiceImpl implements OrderService {
     private final RedissonClient redissonClient;
     private final DelayCloseOrderSendProduce delayCloseOrderSendProduce;
 
+    /**
+     * 根据订单编号查询订单信息和订单明细
+     */
     @Override
     public TicketOrderDetailRespDTO queryTicketOrderByOrderSn(String orderSn) {
         LambdaQueryWrapper<OrderDO> queryWrapper = Wrappers.lambdaQuery(OrderDO.class)
@@ -96,6 +99,9 @@ public class OrderServiceImpl implements OrderService {
         return result;
     }
 
+    /**
+     * 跟据用户 ID 分页查询 订单信息，然后再根据订单id查询订单详情
+     */
     @Override
     public PageResponse<TicketOrderDetailRespDTO> pageTicketOrder(TicketOrderPageQueryReqDTO requestParam) {
         LambdaQueryWrapper<OrderDO> queryWrapper = Wrappers.lambdaQuery(OrderDO.class)
@@ -117,6 +123,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public String createTicketOrder(TicketOrderCreateReqDTO requestParam) {
         // 通过基因法将用户 ID 融入到订单号
+        // ct 1、订单信息写入
         String orderSn = OrderIdGeneratorManager.generateId(requestParam.getUserId());
         OrderDO orderDO = OrderDO.builder().orderSn(orderSn)
                 .orderTime(requestParam.getOrderTime())
@@ -133,6 +140,7 @@ public class OrderServiceImpl implements OrderService {
                 .userId(String.valueOf(requestParam.getUserId()))
                 .build();
         orderMapper.insert(orderDO);
+        // ct 2、订单item写入。订单乘车人路由表写入
         List<TicketOrderItemCreateReqDTO> ticketOrderItems = requestParam.getTicketOrderItems();
         List<OrderItemDO> orderItemDOList = new ArrayList<>();
         List<OrderItemPassengerDO> orderPassengerRelationDOList = new ArrayList<>();
@@ -162,6 +170,12 @@ public class OrderServiceImpl implements OrderService {
         });
         orderItemService.saveBatch(orderItemDOList);
         orderPassengerRelationService.saveBatch(orderPassengerRelationDOList);
+        // ct 3、订单延迟未支付时，取消
+        // consumer逻辑：
+        // * 1、根据订单id获取订单状态，判断是否是未支付状态，是则取消订单，否则取消失败
+        // * 2、订单取消成功，座位解锁
+        // * 3、恢复站点余票
+        // * 4、回滚列车余量令牌
         try {
             // 发送 RocketMQ 延时消息，指定时间后取消订单
             DelayCloseOrderEvent delayCloseOrderEvent = DelayCloseOrderEvent.builder()
@@ -183,6 +197,9 @@ public class OrderServiceImpl implements OrderService {
         return orderSn;
     }
 
+    /**
+     * 根据订单id获取订单状态，判断是否是未支付状态，是则取消订单，否则取消失败
+     */
     @Override
     public boolean closeTickOrder(CancelTicketOrderReqDTO requestParam) {
         String orderSn = requestParam.getOrderSn();
@@ -197,6 +214,11 @@ public class OrderServiceImpl implements OrderService {
         return cancelTickOrder(requestParam);
     }
 
+    /**
+     * 1、根据订单id获取订单详情
+     * 2、更新订单状态为关闭状态
+     * 3、更新订单详情为关闭状态
+     */
     @Override
     public boolean cancelTickOrder(CancelTicketOrderReqDTO requestParam) {
         String orderSn = requestParam.getOrderSn();
@@ -237,6 +259,10 @@ public class OrderServiceImpl implements OrderService {
         return true;
     }
 
+    /**
+     * 1、根据订单id查询订单信息
+     * 2、更新订单状态和订单详情的状态
+     */
     @Override
     public void statusReversal(OrderStatusReversalDTO requestParam) {
         LambdaQueryWrapper<OrderDO> queryWrapper = Wrappers.lambdaQuery(OrderDO.class)
@@ -273,6 +299,9 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    /**
+     * 更新订单表中的支付时间和支付方式
+     */
     @Override
     public void payCallbackOrder(PayResultCallbackOrderEvent requestParam) {
         OrderDO updateOrderDO = new OrderDO();
@@ -286,6 +315,11 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    /**
+     * 1、根据身份证号获取订单id
+     * 2、根据订单id从 订单表中搜索到 订单
+     * 3、根据 订单 id 从 订单详情表中搜索到 订单 item
+     */
     @Override
     public PageResponse<TicketOrderDetailSelfRespDTO> pageSelfTicketOrder(TicketOrderSelfPageQueryReqDTO requestParam) {
         LambdaQueryWrapper<OrderItemPassengerDO> queryWrapper = Wrappers.lambdaQuery(OrderItemPassengerDO.class)
