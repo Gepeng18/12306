@@ -347,6 +347,13 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         }
     }
 
+    /**
+     * 1、根据trainId获取列车信息
+     * 2、选择座位，锁定座位，扣减站点余票缓存，返回了车厢号，座位号
+     * 3、保存座位选择结果和付款状态:未支付到ticket表中
+     * 4、将订单信息，订单详情（每个乘车人）信息调用RPC接口进行创建
+     * 所以核心就是：锁定座位，扣减库存，创建订单
+     */
     @Override
     @Transactional(rollbackFor = Throwable.class)
     public TicketPurchaseRespDTO executePurchaseTickets(PurchaseTicketReqDTO requestParam) {
@@ -360,7 +367,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
                 () -> trainMapper.selectById(trainId),
                 ADVANCE_TICKET_DAY,
                 TimeUnit.DAYS);
-        // ct 2、选择座位，扣减库存，返回了车厢号，座位号
+        // ct 2、选择座位，锁定座位，扣减站点余票缓存，返回了车厢号，座位号
         List<TrainPurchaseTicketRespDTO> trainPurchaseTicketResults = trainSeatTypeSelector.select(trainDO.getTrainType(), requestParam);
         List<TicketDO> ticketDOList = trainPurchaseTicketResults.stream()
                 .map(each -> TicketDO.builder()
@@ -378,6 +385,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
         try {
             List<TicketOrderItemCreateRemoteReqDTO> orderItemCreateRemoteReqDTOList = new ArrayList<>();
             trainPurchaseTicketResults.forEach(each -> {
+                // ct 构造 购买结果用于调用rpc接口创建订单
                 TicketOrderItemCreateRemoteReqDTO orderItemCreateRemoteReqDTO = TicketOrderItemCreateRemoteReqDTO.builder()
                         .amount(each.getAmount())
                         .carriageNumber(each.getCarriageNumber())
@@ -389,6 +397,7 @@ public class TicketServiceImpl extends ServiceImpl<TicketMapper, TicketDO> imple
                         .ticketType(each.getUserType())
                         .realName(each.getRealName())
                         .build();
+                // ct 构造 购买结果用于 返回给前端展示
                 TicketOrderDetailRespDTO ticketOrderDetailRespDTO = TicketOrderDetailRespDTO.builder()
                         .amount(each.getAmount())
                         .carriageNumber(each.getCarriageNumber())

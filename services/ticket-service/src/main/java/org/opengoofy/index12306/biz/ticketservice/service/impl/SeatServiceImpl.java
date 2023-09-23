@@ -107,6 +107,9 @@ public class SeatServiceImpl extends ServiceImpl<SeatMapper, SeatDO> implements 
         return seatDOList.stream().map(SeatDO::getCarriageNumber).collect(Collectors.toList());
     }
 
+    /**
+     * 针对每一个选座结果，可能锁定沿途多个座位（所有涉及到该段的座位都会被锁定）
+     */
     @Override
     public void lockSeat(String trainId, String departure, String arrival, List<TrainPurchaseTicketRespDTO> trainPurchaseTicketRespList) {
         List<RouteDTO> routeList = trainStationService.listTakeoutTrainStationRoute(trainId, departure, arrival);

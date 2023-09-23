@@ -35,7 +35,7 @@ public final class RedisKeyConstant {
     public static final String USER_DELETION = "index12306-user-service:user-deletion:";
 
     /**
-     * 用户注册可复用用户名分片，Key Prefix + Idx
+     * 用户注册可复用用户名分片，Key Prefix + Idx [存储注销了的用户名]
      */
     public static final String USER_REGISTER_REUSE_SHARDING = "index12306-user-service:user-reuse:";
 

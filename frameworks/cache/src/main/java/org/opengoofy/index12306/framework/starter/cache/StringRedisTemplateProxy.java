@@ -143,11 +143,16 @@ public class StringRedisTemplateProxy implements DistributedCache {
         return safeGet(key, clazz, cacheLoader, timeout, redisProperties.getValueTimeUnit(), bloomFilter, cacheGetFilter, cacheGetIfAbsent);
     }
 
+    /**
+     * cacheGetIfAbsent 存储 真正不存在的key
+     */
     @Override
     public <T> T safeGet(String key, Class<T> clazz, CacheLoader<T> cacheLoader, long timeout, TimeUnit timeUnit,
                          RBloomFilter<String> bloomFilter, CacheGetFilter<String> cacheGetFilter, CacheGetIfAbsent<String> cacheGetIfAbsent) {
         T result = get(key, clazz);
-        // 缓存结果不等于空或空字符串直接返回；通过函数判断是否返回空，为了适配布隆过滤器无法删除的场景；两者都不成立，判断布隆过滤器是否存在，不存在返回空
+        // 1. 缓存结果不等于空或空字符串直接返回；
+        // 2. 缓存中没有数据，通过函数判断是否返回空，为true则表示不存在，返回null，为了适配布隆过滤器无法删除的场景；
+        // 3. 两者都不成立，判断布隆过滤器是否存在，不存在返回空
         if (!CacheUtil.isNullOrBlank(result)
                 || Optional.ofNullable(cacheGetFilter).map(each -> each.filter(key)).orElse(false)
                 || Optional.ofNullable(bloomFilter).map(each -> !each.contains(key)).orElse(false)) {

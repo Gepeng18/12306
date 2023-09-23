@@ -65,6 +65,13 @@ public final class TrainSeatTypeSelector {
     private final AbstractStrategyChoose abstractStrategyChoose;
     private final ThreadPoolExecutor selectSeatThreadPoolExecutor;
 
+    /**
+     * 1、将本单的乘客 按照 买的座位类型进行分组
+     * 2、针对每个座位类型去调用distributeSeats()分配座位
+     * 3、发起远程调用获取乘车人信息
+     * 4、在座位分配的结果中添加乘车人信息和座位价格信息
+     * 5、锁定选择的座位
+     */
     public List<TrainPurchaseTicketRespDTO> select(Integer trainType, PurchaseTicketReqDTO requestParam) {
         // ct 1、将本单的乘客 按照 买的座位类型进行分组
         List<PurchaseTicketPassengerDetailDTO> passengerDetails = requestParam.getPassengers();
